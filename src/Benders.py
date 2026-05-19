@@ -52,8 +52,12 @@ class Benders:
         self.milp.dummy = {(r,s):self.milp.integer_var(lb=0, ub=1) for r in self.network.origins for s in r.getDests()}
         
         for (r,s) in self.possible:
-            self.milp.add_constraint(self.milp.dummy[(r,s)] * (self.max_cost+1) + sum(self.milp.x[(r,s)][a] * a.t_ff for a in self.network.links) <= self.max_cost + M* (1-self.milp.z[(r,s)]))
-            
+            if r != s:
+                self.milp.add_constraint(self.milp.dummy[(r,s)] * (self.max_cost+1) + sum(self.milp.x[(r,s)][a] * a.t_ff for a in self.network.links) <= self.max_cost + M* (1-self.milp.z[(r,s)]))
+            else:
+                self.milp.add_constraint(self.milp.z[(r,s)] == 1)
+                self.milp.add_constraint(self.milp.dummy[(r,s)] == 1)
+                
             for j in self.network.nodes:
                 d = 0
                 if j == r:
@@ -97,6 +101,7 @@ class Benders:
         
         #print(y)
         
+ 
         '''
         for (r,s) in self.z_milp:
             if self.z_milp[(r,s)] == 1:
@@ -152,7 +157,7 @@ class Benders:
                     if self.milp.x[(r,s)][a].solution_value > 0.1:
                         tot_length += a.t_ff
                 
-                print((r,s), self.z_milp[(r,s)], self.z_bd[(r,s)], tot_length, self.max_cost)
+                print((r,s), self.z_milp[(r,s)], self.z_bd[(r,s)], tot_length, self.max_cost, r.getDemand(s))
                 
                 for a in self.network.links:
                     if self.milp.x[(r,s)][a].solution_value > 0.1:
@@ -161,8 +166,8 @@ class Benders:
                         elif a.enabled == True:
                             msg = True
                         
-                        if r.id == 19 and s.id == 17:
-                            print("\t", a, self.milp.x[(r,s)][a].solution_value, a.t_ff, msg)
+                        #if r.id == 19 and s.id == 17:
+                        #    print("\t", a, self.milp.x[(r,s)][a].solution_value, a.t_ff, msg)
         '''
                
     def initRMP(self):
