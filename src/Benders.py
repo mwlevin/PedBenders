@@ -90,6 +90,8 @@ class Benders:
         
         for a in y:
             a.y = y[a]
+            
+        
         
         print("check obj", self.calcObjZ(self.z_milp), self.calcObj(y))
         
@@ -115,6 +117,8 @@ class Benders:
         
         obj = self.milp.objective_value
         
+        self.obj_milp = obj
+        
         self.y_milp = y
         t_total = time.time() - t_total
         
@@ -135,9 +139,9 @@ class Benders:
         y_milp, obj_milp, gap_milp, t_milp = self.milp()
         y_bd, obj_bd, gap_bd, t_bd = self.benders()
         
-        print("MILP", obj_milp, gap_milp, t_milp, self.getNumSelected(y_milp))
+        print("MILP", obj_milp, gap_milp, t_milp, self.getNumSelected(y_milp)/2)
         #print("\t", y_milp)
-        print("BD", obj_bd, gap_bd, t_bd, self.getNumSelected(y_bd))
+        print("BD", obj_bd, gap_bd, t_bd, self.getNumSelected(y_bd)/2)
         
         '''
         for (r,s) in self.z_milp:
@@ -289,7 +293,7 @@ class Benders:
             
             
               
-            if ub < 54300:
+            if ub < self.obj_milp-0.1:
                 for a in self.network.candidates:
                     self.rmp.add_constraint(self.rmp.y[a] == self.y_milp[a])
                 print("old ub", ub, "solving rmp")
@@ -303,6 +307,7 @@ class Benders:
                     if z[(r,s)] > 0.1:
                         print((r,s), z[(r,s)], r.getDemand(s))
                 
+                print("exit due to BD ub < MILP obj")
                 break
             
             time_elapse = time.time() - t_total

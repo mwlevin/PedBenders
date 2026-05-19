@@ -64,7 +64,7 @@ class Network:
     
               
         
-        print("candidates", len(self.candidates))
+        print("candidates", len(self.candidates)/2)
 
         for a in self.candidates:
             a.enabled = True
