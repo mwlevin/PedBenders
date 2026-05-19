@@ -16,22 +16,25 @@ class Benders:
         
         
         self.params = network.params
+        
+        print("max obj", self.maxObj())
      
     def milp(self):
         t_total = time.time()
         
         self.milp = Model()
         
-        self.milp.z = {(r,s):self.milp.integer_var(lb=0, ub=1) for r in self.network.origins for s in r.getDests()}
+        self.milp.z = {(r,s):self.milp.integer_var(lb=0, ub=1) for (r,s) in self.possible}
         
-        self.milp.x = {(r,s) : dict() for r in self.network.origins for s in r.getDests()}
         
-        for r in self.network.origins:
-            for s in r.getDests():
-                self.milp.x[(r,s)] = {a: self.milp.integer_var(lb=0, ub=1) for a in self.network.links}
-                for a in self.network.links:
-                    if a.enabled == False:
-                        self.milp.x[(r,s)][a].ub = 0
+        
+        self.milp.x = {(r,s) : dict() for (r,s) in self.possible}
+        
+        for (r,s) in self.possible:
+            self.milp.x[(r,s)] = {a: self.milp.integer_var(lb=0, ub=1) for a in self.network.links}
+            for a in self.network.links:
+                if a.enabled == False:
+                    self.milp.x[(r,s)][a].ub = 0
                         
         self.milp.y = {a:self.milp.integer_var(lb=0, ub=1) for a in self.network.candidates}
         
@@ -39,33 +42,32 @@ class Benders:
             if a.start.id < a.end.id:
                 self.milp.add_constraint(self.milp.y[a] == self.milp.y[self.network.findLink(a.end, a.start)])
         
-        M = 1e4
+        M = 1e7
         
         self.milp.dummy = {(r,s):self.milp.integer_var(lb=0, ub=1) for r in self.network.origins for s in r.getDests()}
         
-        for r in self.network.origins:
-            for s in r.getDests():
-                self.milp.add_constraint(self.milp.dummy[(r,s)] * (self.max_cost+1) + sum(self.milp.x[(r,s)][a] * a.t_ff for a in self.network.links) <= self.max_cost + M* (1-self.milp.z[(r,s)]))
-                
-                for j in self.network.nodes:
+        for (r,s) in self.possible:
+            self.milp.add_constraint(self.milp.dummy[(r,s)] * (self.max_cost+1) + sum(self.milp.x[(r,s)][a] * a.t_ff for a in self.network.links) <= self.max_cost + M* (1-self.milp.z[(r,s)]))
+            
+            for j in self.network.nodes:
+                d = 0
+                if j == r:
+                    d = -1
+                    self.milp.add_constraint(sum(self.milp.x[(r,s)][ij] for ij in j.incoming) - self.milp.dummy[(r,s)] - sum(self.milp.x[(r,s)][jk] for jk in j.outgoing)  == d)
+                elif j == s:
+                    d = 1
+                    self.milp.add_constraint(sum(self.milp.x[(r,s)][ij] for ij in j.incoming) + self.milp.dummy[(r,s)] - sum(self.milp.x[(r,s)][jk] for jk in j.outgoing) == d)
+                else:
                     d = 0
-                    if j == r:
-                        d = -1
-                        self.milp.add_constraint(sum(self.milp.x[(r,s)][ij] for ij in j.incoming) - self.milp.dummy[(r,s)] - sum(self.milp.x[(r,s)][jk] for jk in j.outgoing)  == d)
-                    elif j == s:
-                        d = 1
-                        self.milp.add_constraint(sum(self.milp.x[(r,s)][ij] for ij in j.incoming) + self.milp.dummy[(r,s)] - sum(self.milp.x[(r,s)][jk] for jk in j.outgoing) == d)
-                    else:
-                        d = 0
-                        self.milp.add_constraint(sum(self.milp.x[(r,s)][ij] for ij in j.incoming) - sum(self.milp.x[(r,s)][jk] for jk in j.outgoing) == d)
-                    
-                    
+                    self.milp.add_constraint(sum(self.milp.x[(r,s)][ij] for ij in j.incoming) - sum(self.milp.x[(r,s)][jk] for jk in j.outgoing) == d)
+                
+                
+    
+    
+            for a in self.network.candidates:
+                self.milp.add_constraint(self.milp.x[(r,s)][a] <= self.milp.y[a])
         
-        
-                for a in self.network.candidates:
-                    self.milp.add_constraint(self.milp.x[(r,s)][a] <= self.milp.y[a])
-        
-        self.milp.maximize(sum(self.milp.z[(r,s)] * r.getDemand(s) for r in self.network.origins for s in r.getDests()))
+        self.milp.maximize(sum(self.milp.z[(r,s)] * r.getDemand(s) for (r,s) in self.possible))
         
         self.milp.add_constraint(sum(self.milp.y[a] for a in self.network.candidates) <= 2*self.network.B)
         
@@ -73,12 +75,12 @@ class Benders:
         y = {a:self.milp.y[a].solution_value for a in self.network.candidates}
         
         
-        z = {(r,s): self.milp.z[(r,s)].solution_value for r in self.network.origins for s in r.getDests()}
+        self.z_milp = {(r,s): self.milp.z[(r,s)].solution_value for (r,s) in self.possible}
         
         for a in y:
             a.y = y[a]
         
-        print("check obj", self.calcObjZ(z))
+        print("check obj", self.calcObjZ(self.z_milp), self.calcObj(y))
         
         '''
         for (r,s) in z:
@@ -93,18 +95,18 @@ class Benders:
                         elif a.enabled == True:
                             msg = True
                         
-                        if r.id == 2 and s.id == 6:
-                            print("\t", a, self.milp.x[(r,s)][a].solution_value, a.t_ff, msg)
-                
-        '''      
+                        #if r.id == 2 and s.id == 6:
+                        print("\t", a, self.milp.x[(r,s)][a].solution_value, a.t_ff, msg)
+        '''    
+              
         
         obj = self.milp.objective_value
         
-        self.milpy = y
+        self.y_milp = y
         t_total = time.time() - t_total
         
         print(obj, t_total)
-        print("validate", self.calcObj(y))
+ 
         return y, obj, t_total
         
     def compare(self):
@@ -114,6 +116,26 @@ class Benders:
         print("MILP", obj_milp, t_milp)
         #print("\t", y_milp)
         print("BD", obj_bd, t_bd)
+        
+        for (r,s) in self.z_milp:
+            if round(self.z_milp[(r,s)]) != round(self.z_bd[(r,s)]):
+                
+                tot_length = 0
+                for a in self.network.links:
+                    if self.milp.x[(r,s)][a].solution_value > 0.1:
+                        tot_length += a.t_ff
+                
+                print((r,s), self.z_milp[(r,s)], self.z_bd[(r,s)], tot_length, self.max_cost)
+                
+                for a in self.network.links:
+                    if self.milp.x[(r,s)][a].solution_value > 0.1:
+                        if a in self.network.candidates:
+                            msg = a.y
+                        elif a.enabled == True:
+                            msg = True
+                        
+                        #if r.id == 2 and s.id == 6:
+                        #print("\t", a, self.milp.x[(r,s)][a].solution_value, a.t_ff, msg)
         
                
     def initRMP(self):
@@ -127,7 +149,7 @@ class Benders:
             
         self.rmp = Model()
         
-        self.rmp.zeta = {(r,s):self.rmp.continuous_var(lb=0, ub=1) for r in self.network.origins for s in r.getDests()}
+        self.rmp.zeta = {(r,s):self.rmp.continuous_var(lb=0, ub=1) for (r,s) in self.possible}
         
         self.rmp.y = {a: self.rmp.integer_var(lb=0,ub=1) for a in self.network.candidates}
         
@@ -137,7 +159,7 @@ class Benders:
         
         self.rmp.add_constraint(sum(self.rmp.y[a] for a in self.network.candidates) <= 2*self.network.B)
         
-        self.rmp.maximize(sum(self.rmp.zeta[(r,s)] * r.getDemand(s) for r in self.network.origins for s in r.getDests()))
+        self.rmp.maximize(sum(self.rmp.zeta[(r,s)] * r.getDemand(s) for (r,s) in self.possible))
         
         
         
@@ -211,7 +233,19 @@ class Benders:
                         self.linkMu[(r,s)][a] = 0
           '''  
         
-           
+    def maxObj(self):
+        output = 0
+        self.possible = set()
+        for r in self.network.origins:
+            self.network.dijkstras(r, self.max_cost, True) 
+        
+            for s in r.getDests():
+                if s.cost <= self.max_cost:
+                    output += r.getDemand(s)
+                    self.possible.add((r,s))
+                    
+        return output
+              
     def benders(self):
         
         t_init = time.time()
@@ -246,6 +280,7 @@ class Benders:
             
             if valid_obj > lb:
                 besty = y
+                self.z_bd = z
                 lb = valid_obj
 
             if lb > 0:
@@ -286,7 +321,7 @@ class Benders:
         obj = self.rmp.objective_value
         
         #z = dict()
-        z = {(r,s): self.rmp.zeta[(r,s)].solution_value for r in self.network.origins for s in r.getDests()}
+        z = {(r,s): self.rmp.zeta[(r,s)].solution_value for (r,s) in self.possible}
         
         return y, obj, z
            
@@ -298,13 +333,16 @@ class Benders:
         obj = 0
             
         for r in self.network.origins:
+            self.network.dijkstras(r, self.max_cost, False)
+            
             for s in r.getDests():
-                gamma_rs = 0
+                possible = False
                 
-                self.network.dijkstras(r, self.max_cost, False)
+                gamma_rs = 0
                 
                 if s.cost <= self.max_cost:
                     gamma_rs = 1
+                    possible = True
                     
                 obj += gamma_rs * r.getDemand(s)
                 
@@ -312,11 +350,12 @@ class Benders:
                 for a in self.network.candidates:
                     if y[a] < 1e-2:
                         mu[a] = self.linkMu[(r,s)][a]
+                        possible = True
                     else:
                         mu[a] = 0
                     
-                    
-                self.rmp.add_constraint(self.rmp.zeta[(r,s)] <= gamma_rs + sum(self.rmp.y[a] * mu[a] for a in self.network.candidates))
+                if possible:
+                    self.rmp.add_constraint(self.rmp.zeta[(r,s)] <= gamma_rs + sum(self.rmp.y[a] * mu[a] for a in self.network.candidates))
                 
                 '''
                 if r.id == 2 and s.id == 6:

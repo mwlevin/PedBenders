@@ -37,25 +37,34 @@ class Network:
         
         for a in self.links:
             a.enabled = False
-            
-            
-        baseline = []
         
-        while len(baseline) < num_baseline:
-            link = self.links[random.randint(0, len(self.links)-1)]
-            if link not in baseline:
-                baseline.append(link)
-                link2 = self.findLink(link.end, link.start)
-                baseline.append(link2)
-                link.enabled = True
-                link2.enabled = True
-    
-              
+        
         while len(self.candidates) < num_candidate:
             link = self.links[random.randint(0, len(self.links)-1)]
-            if link not in self.candidates and link not in baseline:
+            if link not in self.candidates:
                 self.candidates.append(link)
                 self.candidates.append(self.findLink(link.end, link.start))
+                
+        
+        
+        if num_baseline < len(self.links):
+            
+            baseline = []
+            while len(baseline) < num_baseline:
+                link = self.links[random.randint(0, len(self.links)-1)]
+                if link not in baseline and link not in self.candidates:
+                    baseline.append(link)
+                    link2 = self.findLink(link.end, link.start)
+                    baseline.append(link2)
+                    link.enabled = True
+                    link2.enabled = True
+        else:
+            for a in self.links:
+                a.enabled = True
+    
+              
+        
+        print("candidates", len(self.candidates))
 
         for a in self.candidates:
             a.enabled = True
