@@ -9,13 +9,13 @@ import random
 class Network:
 
     # construct this Network with the name; read files associated with network name
-    def __init__(self,name, num_baseline, num_candidate, B_):
+    def __init__(self,name, num_baseline, num_candidate, B_, random_seed):
         self.nodes = [] 
         self.links = []
         self.zones = []
         self.origins = []
         
-        random.seed(10)
+        random.seed(random_seed)
         
         self.name = name
         
