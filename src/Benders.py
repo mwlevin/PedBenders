@@ -35,6 +35,10 @@ class Benders:
                         
         self.milp.y = {a:self.milp.integer_var(lb=0, ub=1) for a in self.network.candidates}
         
+        for a in self.network.candidates:
+            if a.start.id < a.end.id:
+                self.milp.add_constraint(self.milp.y[a] == self.milp.y[self.network.findLink(a.end, a.start)])
+        
         M = 1e4
         
         self.milp.dummy = {(r,s):self.milp.integer_var(lb=0, ub=1) for r in self.network.origins for s in r.getDests()}
@@ -63,7 +67,7 @@ class Benders:
         
         self.milp.maximize(sum(self.milp.z[(r,s)] * r.getDemand(s) for r in self.network.origins for s in r.getDests()))
         
-        self.milp.add_constraint(sum(self.milp.y[a] for a in self.network.candidates) <= self.network.B)
+        self.milp.add_constraint(sum(self.milp.y[a] for a in self.network.candidates) <= 2*self.network.B)
         
         self.milp.solve(log_output=False)
         y = {a:self.milp.y[a].solution_value for a in self.network.candidates}
@@ -127,7 +131,11 @@ class Benders:
         
         self.rmp.y = {a: self.rmp.integer_var(lb=0,ub=1) for a in self.network.candidates}
         
-        self.rmp.add_constraint(sum(self.rmp.y[a] for a in self.network.candidates) <= self.network.B)
+        for a in self.network.candidates:
+            if a.start.id < a.end.id:
+                self.rmp.add_constraint(self.rmp.y[a] == self.rmp.y[self.network.findLink(a.end, a.start)])
+        
+        self.rmp.add_constraint(sum(self.rmp.y[a] for a in self.network.candidates) <= 2*self.network.B)
         
         self.rmp.maximize(sum(self.rmp.zeta[(r,s)] * r.getDemand(s) for r in self.network.origins for s in r.getDests()))
         
