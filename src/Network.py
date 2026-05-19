@@ -9,7 +9,7 @@ import random
 class Network:
 
     # construct this Network with the name; read files associated with network name
-    def __init__(self,name, num_baseline, num_candidate, B_, random_seed):
+    def __init__(self,name, num_baseline, num_candidate, B_, max_cost, random_seed):
         self.nodes = [] 
         self.links = []
         self.zones = []
@@ -41,7 +41,7 @@ class Network:
         
         while len(self.candidates) < 2*num_candidate:
             link = self.links[random.randint(0, len(self.links)-1)]
-            if link not in self.candidates:
+            if link not in self.candidates and link.t_ff <= max_cost:
                 self.candidates.append(link)
                 self.candidates.append(self.findLink(link.end, link.start))
                 
@@ -52,7 +52,7 @@ class Network:
             baseline = []
             while len(baseline) < 2*num_baseline:
                 link = self.links[random.randint(0, len(self.links)-1)]
-                if link not in baseline and link not in self.candidates:
+                if link not in baseline and link not in self.candidates and link.t_ff <= max_cost:
                     baseline.append(link)
                     link2 = self.findLink(link.end, link.start)
                     baseline.append(link2)
