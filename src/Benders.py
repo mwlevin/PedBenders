@@ -65,27 +65,35 @@ class Benders:
         
         self.milp.add_constraint(sum(self.milp.y[a] for a in self.network.candidates) <= self.network.B)
         
-        self.milp.solve(log_output=True)
+        self.milp.solve(log_output=False)
         y = {a:self.milp.y[a].solution_value for a in self.network.candidates}
         
-        '''
+        
         z = {(r,s): self.milp.z[(r,s)].solution_value for r in self.network.origins for s in r.getDests()}
         
+        for a in y:
+            a.y = y[a]
+        
+        print("check obj", self.calcObjZ(z))
         
         for (r,s) in z:
             if z[(r,s)] == 1:
-                print((r,s), z[(r,s)])
+                print((r,s), z[(r,s)], r.getDemand(s))
                 
                 lista = list()
                 for a in self.network.links:
                     if self.milp.x[(r,s)][a].solution_value > 0.1:
-                        print("\t", a, self.milp.x[(r,s)][a].solution_value, a.t_ff, y[a])
+                        if a in self.network.candidates:
+                            msg = a.y
+                        elif a.enabled == True:
+                            msg = True
+                        #print("\t", a, self.milp.x[(r,s)][a].solution_value, a.t_ff, msg)
                 
-        '''        
+              
         
         obj = self.milp.objective_value
         
-        
+        self.milpy = y
         t_total = time.time() - t_total
         
         print(obj, t_total)
@@ -97,7 +105,9 @@ class Benders:
         y_bd, obj_bd, t_bd = self.benders()
         
         print("MILP", obj_milp, t_milp)
+        print("\t", y_milp)
         print("BD", obj_bd, t_bd)
+        
                
     def initRMP(self):
         
@@ -114,6 +124,9 @@ class Benders:
         self.rmp.add_constraint(sum(self.rmp.y[a] for a in self.network.candidates) <= self.network.B)
         
         self.rmp.maximize(sum(self.rmp.zeta[(r,s)] * r.getDemand(s) for r in self.network.origins for s in r.getDests()))
+        
+        
+        
      
     def initLinkMu(self):
         self.linkMu = dict()
@@ -130,15 +143,26 @@ class Benders:
                 
                 nodeCostTo = {j: j.cost for j in self.network.nodes}
                 
-                self.network.dijkstras(s, self.max_cost, True)
+                self.network.dijkstrasTo(s, self.max_cost, True)
                 
                 nodeCostFrom = {j: j.cost for j in self.network.nodes}
                 
-                for a in self.network.links:
+                if r.id == 7 and s.id == 16:
+                    print(nodeCostFrom)
+                
+                for a in self.network.candidates:
                     i = a.start
                     j = a.end
+                    
+                    if r.id == 7 and s.id == 16:
+                        print((r,s), a, nodeCostTo[i], nodeCostFrom[j], a.t_ff )
+                        
+                        
+                            
                     if nodeCostTo[i] + nodeCostFrom[j] + a.t_ff <= self.max_cost:
                         self.linkMu[(r,s)][a] = 1
+                        
+                        
                     else:
                         self.linkMu[(r,s)][a] = 0
                     
@@ -198,7 +222,7 @@ class Benders:
         
         while gap > 0.01:
             iteration += 1
-            y, obj = self.solveRMP()
+            y, obj, z = self.solveRMP()
             
             ub = obj
             
@@ -211,12 +235,27 @@ class Benders:
 
             if lb > 0:
                 gap = (ub - lb)/lb
+                
+            if gap < 0:
+                for a in self.network.candidates:
+                    self.rmp.add_constraint(self.rmp.y[a] == self.milpy[a])
+                y, obj, z = self.solveRMP()
+                print("new obj", obj)
+                
+                #print("check obj", self.calcObjZ(z))
+                
+                for r in self.network.origins:
+                    for s in r.getDests():
+                        if z[(r,s)] > 0.1:
+                            print((r,s), z[(r,s)], r.getDemand(s))
+                
             
             time_elapse = time.time() - t_total
             
             print(iteration, lb, ub, gap, time_elapse)
                 
         t_total = time.time() - t_total
+        
         
         print("validate", self.calcObj(besty))
         
@@ -227,7 +266,10 @@ class Benders:
         y = {a:self.rmp.y[a].solution_value for a in self.network.candidates}
         obj = self.rmp.objective_value
         
-        return y, obj
+        #z = dict()
+        z = {(r,s): self.rmp.zeta[(r,s)].solution_value for r in self.network.origins for s in r.getDests()}
+        
+        return y, obj, z
            
     def subproblem(self, y):
           
@@ -249,13 +291,18 @@ class Benders:
                 
                 mu = dict()
                 for a in self.network.candidates:
-                    if y[a] < 1e-4:
+                    if y[a] < 1e-2:
                         mu[a] = self.linkMu[(r,s)][a]
                     else:
                         mu[a] = 0
                     
                     
                 self.rmp.add_constraint(self.rmp.zeta[(r,s)] <= gamma_rs + sum(self.rmp.y[a] * mu[a] for a in self.network.candidates))
+                
+                if r.id == 7 and s.id == 16:
+                    print("gamma", gamma_rs)
+                    for a in mu:
+                        print("\tmu", a, mu[a], y[a])
                 
         return obj
     
@@ -276,4 +323,12 @@ class Benders:
                     
                     #print( (r,s), 1)
         
+        return output
+        
+    def calcObjZ(self, z):
+        output = 0
+        for (r,s) in z:
+            if z[(r,s)] > 0.1:
+                output += r.getDemand(s)
+                
         return output

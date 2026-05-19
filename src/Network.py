@@ -9,7 +9,7 @@ import random
 class Network:
 
     # construct this Network with the name; read files associated with network name
-    def __init__(self,name, num_candidate, B_):
+    def __init__(self,name, num_baseline, num_candidate, B_):
         self.nodes = [] 
         self.links = []
         self.zones = []
@@ -37,14 +37,22 @@ class Network:
         
         for a in self.links:
             a.enabled = False
+            
+            
+        baseline = []
         
-        
-        for i in range (0, num_candidate):
-            while True:
-                link = self.links[random.randint(0, len(self.links))]
-                if link not in self.candidates:
-                    self.candidates.append(link)
-                    break
+        while len(baseline) < num_baseline:
+            link = self.links[random.randint(0, len(self.links)-1)]
+            if link not in baseline:
+                baseline.append(link)
+                link.enabled = True
+                
+    
+              
+        while len(self.candidates) < num_candidate:
+            link = self.links[random.randint(0, len(self.links)-1)]
+            if link not in self.candidates and link not in baseline:
+                self.candidates.append(link)
 
         for a in self.candidates:
             a.enabled = True
@@ -285,6 +293,42 @@ class Network:
 
                         if v.isThruNode():
                             Q.insert(v)
+                            
+    def dijkstrasTo(self, dest, max_cost, type):
+        
+        for n in self.nodes:
+            n.cost = Params.INFTY
+            n.pred = None
+
+        dest.cost = 0.0
+
+        Q = Heap.Heap()
+        Q.insert(dest)
+        
+
+
+        while Q.size() > 0:
+
+            u = Q.removeMin()
+            
+            #if type == 'RC':
+            #    print('u',u)
+
+            for vu in u.incoming:
+                v = vu.start
+                tt = vu.getCost(type)
+
+                #if u.cost + tt < v.cost:
+                if u.cost + tt < v.cost and v.cost - u.cost - tt >= self.params.SP_tol and u.cost + tt <= max_cost:
+                    v.cost = u.cost + tt
+                    v.pred = vu
+                    
+                    #if type == 'RC':
+                    #    print('v',v,v.pred,v.cost)
+
+                    if v.isThruNode():
+                        Q.insert(v)
+
             
 
     def trace(self, r, s):
