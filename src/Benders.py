@@ -42,7 +42,10 @@ class Benders:
             if a.start.id < a.end.id:
                 self.milp.add_constraint(self.milp.y[a] == self.milp.y[self.network.findLink(a.end, a.start)])
         
-        M = 1e7
+        if self.max_cost > 1000:
+            M = 1e7
+        else:
+            M = 1e4
         
         self.milp.dummy = {(r,s):self.milp.integer_var(lb=0, ub=1) for r in self.network.origins for s in r.getDests()}
         
@@ -70,6 +73,9 @@ class Benders:
         self.milp.maximize(sum(self.milp.z[(r,s)] * r.getDemand(s) for (r,s) in self.possible))
         
         self.milp.add_constraint(sum(self.milp.y[a] for a in self.network.candidates) <= 2*self.network.B)
+        
+        self.milp.set_time_limit(self.params.max_time)
+        self.milp.parameters.mip.tolerances.mipgap = self.params.min_gap
         
         self.milp.solve(log_output=False)
         y = {a:self.milp.y[a].solution_value for a in self.network.candidates}
@@ -286,6 +292,9 @@ class Benders:
             if lb > 0:
                 gap = (ub - lb)/lb
             
+            
+            
+            
             '''    
             if ub < 43500:
                 for a in self.network.candidates:
@@ -306,7 +315,15 @@ class Benders:
             
             time_elapse = time.time() - t_total
             
+            
+            
             print(iteration, lb, ub, gap, time_elapse)
+            
+            if gap <= self.params.min_gap:
+                break
+                
+            if time_elapse >= self.params.max_time:
+                break
                 
         t_total = time.time() - t_total
         

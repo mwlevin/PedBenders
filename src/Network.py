@@ -72,12 +72,19 @@ class Network:
     # read file "/net.txt"
     def readNetwork(self,netFile,scal_time,scal_flow):
         
+        self.useNodeMap = False
+        
+        if self.name == 'Munich':
+            self.useNodeMap = True
+        
         firstThruNode = 1
         numZones = 0
         numNodes = 0
         numLinks = 0
         newLinks = 0
         file = open(netFile, "r")
+        
+        self.nodesmap = dict()
 
         line = ""
         
@@ -111,6 +118,8 @@ class Network:
         id = 0
         
         
+        idx = 0
+        
         while len(line) == 0:
             line = file.readline().strip()
 
@@ -118,22 +127,29 @@ class Network:
             line = file.readline().split()
             if len(line) == 0:
                 continue
-            start = self.nodes[int(line[0]) - 1]
-            end = self.nodes[int(line[1]) - 1]
+            
+            startid = int(line[0])
+            endid = int(line[1])
+            
+            if self.useNodeMap:
+                if startid not in self.nodesmap:
+                    self.nodesmap[startid] = idx
+                    idx += 1
+                
+                if endid not in self.nodesmap:
+                    self.nodesmap[endid] = idx
+                    idx += 1
+                
+                startid = self.nodesmap[startid]
+                endid = self.nodesmap[endid]
+                
+            start = self.nodes[startid - 1]
+            end = self.nodes[endid - 1]
             C = float(line[2]) * scal_flow   
             
             length = float(line[3])
 
 
-            t_ff = float(line[4]) * scal_time
-            alpha = float(line[5])
-            beta = float(line[6])
-            
-   
-            try:
-                cost = float(line[10])
-            except ValueError:
-                cost = 0
                 
             #print(start, end, cost, line)
 
@@ -193,10 +209,19 @@ class Network:
             if next == "Origin":
                 
                 idx += 1
-                r = self.zones[int(splitted[idx]) - 1]
+                nodeid = int(splitted[idx])
+                
+                if self.useNodeMap:
+                    nodeid = self.nodesmap[nodeid]
+                    
+                r = self.zones[nodeid - 1]
 
             else:
-                s = self.zones[int(splitted[idx]) - 1]
+                nodeid = int(splitted[idx])
+                if self.useNodeMap:
+                    nodeid = self.nodesmap[nodeid]
+                    
+                s = self.zones[nodeid - 1]
 
                 #print(s)
                 idx += 2

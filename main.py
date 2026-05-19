@@ -10,13 +10,13 @@ def main():
 
 
 	
-	net = 'Anaheim'
+	net = 'Munich'
 	
 		
 	num_baseline = 2000
 	num_candidate = 40
 	B = num_candidate/2
-	max_cost = 5280*2
+	max_cost = 2
 	#max_cost = 20
 
 	network = Network.Network(net, num_baseline, num_candidate, B)
