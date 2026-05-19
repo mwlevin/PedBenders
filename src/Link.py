@@ -27,7 +27,7 @@ class Link:
         return str(self)
 
     def getCost(self, type):
-        if self.enabled and (type == True or self.y == 1):
+        if self.enabled and (type == True or round(self.y) == 1):
             return self.t_ff
         else:
             return 1e6

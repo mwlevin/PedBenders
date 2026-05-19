@@ -39,7 +39,7 @@ class Network:
             a.enabled = False
         
         
-        while len(self.candidates) < num_candidate:
+        while len(self.candidates) < 2*num_candidate:
             link = self.links[random.randint(0, len(self.links)-1)]
             if link not in self.candidates:
                 self.candidates.append(link)
@@ -50,7 +50,7 @@ class Network:
         if num_baseline < len(self.links):
             
             baseline = []
-            while len(baseline) < num_baseline:
+            while len(baseline) < 2*num_baseline:
                 link = self.links[random.randint(0, len(self.links)-1)]
                 if link not in baseline and link not in self.candidates:
                     baseline.append(link)
