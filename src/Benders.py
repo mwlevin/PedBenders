@@ -162,7 +162,7 @@ class Benders:
         print("\n\n")
         
         
-        print(round(len(self.network.candidates)/2), "&", self.max_cost, "&", round(obj_bd), "&", round(gap_bd, 2), "&", round(t_bd, 1), "&", iter_bd, "&", round(obj_milp), "&", round(gap_milp, 2), "&", round(t_milp,1), "&", round(obj_bhagat), "&", round(gap_bhagat, 2), "\\\\\n")
+        print(round(len(self.network.candidates)/2), "&", self.max_cost, "&", round(obj_bd), "&", round(gap_bd, 2), "&", round(t_bd, 1), "&", iter_bd, "&", round(obj_milp), "&", round(gap_milp, 2), "&", round(t_milp,1), "&", round(obj_bhagat), "&", round(gap_bhagat, 2), "&", round(t_bhagat, 1), "\\\\\n")
         
         '''
         for (r,s) in self.z_milp:
