@@ -147,8 +147,14 @@ class Benders:
         print("\nBender's")
         y_bd, obj_bd, gap_bd, t_bd, iter_bd = self.benders()
         
+        if obj_bd > -0.01:
+            obj_bd = max(0, obj_bd)
+            
+        
         print("\nBhagat")
         y_bhagat, obj_bhagat, t_bhagat = self.bhagat()
+        
+        print("\n")
         
         max_obj = max(obj_milp, obj_bd)
         gap_bhagat = (max_obj - obj_bhagat) / obj_bhagat
