@@ -138,20 +138,31 @@ class Benders:
                 output += 1
                 
         return output
-        
+    
         
     def compare(self):
+        print("\nMILP/CPlex")
         y_milp, obj_milp, gap_milp, t_milp = self.milp()
-        y_bd, obj_bd, gap_bd, t_bd = self.benders()
+        
+        print("\nBender's")
+        y_bd, obj_bd, gap_bd, t_bd, iter_bd = self.benders()
+        
+        print("\nBhagat")
         y_bhagat, obj_bhagat, t_bhagat = self.bhagat()
         
         max_obj = max(obj_milp, obj_bd)
         gap_bhagat = (max_obj - obj_bhagat) / obj_bhagat
         
+        print("", "obj", "gap", "cpu time", "num selected", "iter")
         print("MILP", obj_milp, gap_milp, t_milp, self.getNumSelected(y_milp)/2)
         #print("\t", y_milp)
-        print("BD", obj_bd, gap_bd, t_bd, self.getNumSelected(y_bd)/2)
+        print("BD", obj_bd, gap_bd, t_bd, self.getNumSelected(y_bd)/2, iter_bd)
         print("Bhagat", obj_bhagat, gap_bhagat, t_bhagat, self.getNumSelected(y_bhagat)/2)
+        
+        print("\n\n")
+        
+        
+        print(round(len(self.network.candidates)/2), "&", self.max_cost, "&", round(obj_bd), "&", round(gap_bd, 2), "&", round(t_bd, 1), "&", iter_bd, "&", round(obj_milp), "&", round(gap_milp, 2), "&", round(t_milp,1), "&", round(obj_bhagat), "&", round(gap_bhagat, 2), "\\\\\n")
         
         '''
         for (r,s) in self.z_milp:
@@ -337,7 +348,7 @@ class Benders:
         
         print("validate", self.calcObj(besty))
         
-        return besty, lb, gap, t_total+t_init
+        return besty, lb, gap, t_total+t_init, iteration
      
     def solveRMP(self):
         self.rmp.solve(log_output=False)
