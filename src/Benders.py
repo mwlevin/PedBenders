@@ -143,10 +143,15 @@ class Benders:
     def compare(self):
         y_milp, obj_milp, gap_milp, t_milp = self.milp()
         y_bd, obj_bd, gap_bd, t_bd = self.benders()
+        y_bhagat, obj_bhagat, t_bhagat = self.bhagat()
+        
+        max_obj = max(obj_milp, obj_bd)
+        gap_bhagat = (max_obj - obj_bhagat) / obj_bhagat
         
         print("MILP", obj_milp, gap_milp, t_milp, self.getNumSelected(y_milp)/2)
         #print("\t", y_milp)
         print("BD", obj_bd, gap_bd, t_bd, self.getNumSelected(y_bd)/2)
+        print("Bhagat", obj_bhagat, gap_bhagat, t_bhagat, self.getNumSelected(y_bhagat)/2)
         
         '''
         for (r,s) in self.z_milp:
@@ -247,7 +252,7 @@ class Benders:
             self.network.dijkstras(r, self.max_cost, True) 
         
             for s in r.getDests():
-                if s.cost <= self.max_cost:
+                if s.cost <= self.max_cost and r.getDemand(s) > 0.001:
                     output += r.getDemand(s)
                     self.possible.add((r,s))
                     
@@ -413,3 +418,92 @@ class Benders:
                 output += r.getDemand(s)
                 
         return output
+        
+        
+    def bhagat(self):
+        
+        t_total = time.time()
+        
+        budget_used = 0
+        
+        for a in self.network.candidates:
+            a.y = 0
+        
+        best_link = None
+        best_score = 0
+        
+        while budget_used < self.network.B:
+            
+            
+            old_dist = dict()
+            
+            for r in self.network.origins:
+                self.network.dijkstras(r, self.max_cost, False)
+                
+                for s in r.getDests():
+                    if (r,s) in self.possible:
+                        old_dist[(r,s)] = s.cost
+                        
+            
+            
+            for a in self.network.candidates:
+                if a.y == 0:
+                    i = a.start
+                    j = a.end
+                    
+                    new_dist = dict()
+                    
+                    self.network.dijkstrasTo(i, self.max_cost, False)
+                    
+                    to_costs = {n : n.cost for n in self.network.nodes}
+                    
+                    self.network.dijkstras(j, self.max_cost, False)
+                    
+                    score = 0
+                    
+                    for (r,s) in self.possible:
+                        new_dist[(r,s)] = to_costs[r] + a.t_ff + s.cost
+                    
+                        
+                        
+                        old_access = 0
+                        new_access = 0
+                        
+                        if old_dist[(r,s)] <= self.max_cost:
+                            old_access = 1
+                            new_access = 1
+                        if new_dist[(r,s)] <= self.max_cost:
+                            new_access = 1
+                            
+                            
+                        score += r.getDemand(s) * (new_access - old_access)
+                    
+                    
+                    if score > best_score:
+                        best_link = a
+            
+            if best_link is None:
+                print("Could not find best link")
+                for a in self.network.candidates:
+                    if a.y == 0:
+                        print("\t", a, a.y) 
+                break
+            else:            
+                best_link.y = 1
+                self.network.findLink(best_link.end, best_link.start).y = 1
+                budget_used += 1
+                
+                best_score = 0
+                best_link = None
+                
+        y = {a : a.y for a in self.network.candidates}   
+        
+        self.y_bhagat = y
+        
+        
+        
+        obj = self.calcObj(y)     
+                
+        t_total = time.time() - t_total
+        
+        return y, obj, t_total
